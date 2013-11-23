@@ -1,0 +1,13 @@
+SEARCH:
+java -cp target/dependency/lucene-core-3.6.2.jar:target/lucene-ngs-1.0-SNAPSHOT.jar tr.byildiz.lucenengs.SearchChromosome -method AnF -index indexPath -query queryPath -repeat 1000 -more
+
+INDEX:
+java -cp target/dependency/lucene-core-3.6.2.jar:target/lucene-ngs-1.0-SNAPSHOT.jar tr.byildiz.lucenengs.IndexChromosome -index indexPath -file filePath -kmer [70] -n [8]
+
+QUERY CREATE:
+java -cp target/dependency/lucene-core-3.6.2.jar:target/lucene-ngs-1.0-SNAPSHOT.jar tr.byildiz.lucenengs.CreateQuery -n [100] -e [4] -kmer [70] -file filePath -out queryPath
+
+RESULT PROCESS:
+cat results.txt | grep "total collected k-mers" | awk '{s+=$1} END {print s}'
+cat results.txt | grep "total found k-mers" | awk '{s+=$1} END {print s}'
+cat results.txt | grep "MEAN" | awk '{s+=$3} END {print s}'
