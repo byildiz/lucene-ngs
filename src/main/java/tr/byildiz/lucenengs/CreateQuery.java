@@ -8,34 +8,25 @@ import java.util.Random;
 
 public class CreateQuery {
 
-  public static final boolean DEBUG = false;
+  public static final boolean DEBUG = DebugConfig.DEBUG;
 
-  public static int n = 100;
+  public static int q = DefaultConfig.Q;
 
-  public static int e = 4;
+  public static int e = DefaultConfig.E;
 
-  public static int kmerLength = 70;
+  public static int kmerLength = DefaultConfig.KMERLENGTH;
 
-  public static String homePath = System.getProperty("user.home")
-      + System.getProperty("file.separator");
+  public static String homePath = DefaultConfig.HOMEPATH;
 
-  public static String filePath = null;
+  public static String filePath = DefaultConfig.FILEPATH;
 
-  public static String queryPath = null;
+  public static String queryPath = DefaultConfig.QUERYPATH;
 
   public static Random random = new Random(System.currentTimeMillis());
 
-  public static String usage = "Usage: CreateQuery -n [100] -e [4] -kmer [70] -file filePath -out queryPath";
+  public static String usage = "Usage: CreateQuery -q [100] -e [4] -kmer [70] -file filePath -out queryPath";
 
   public static void main(String[] args) throws Exception {
-    // in debug mode set all command line parameters
-    if (DEBUG) {
-      n = 100;
-      e = 4;
-      kmerLength = 70;
-      filePath = "/home/byildiz/kmer/dna.fasta";
-      queryPath = "/home/byildiz/kmer/query.txt";
-    }
 
     // parse system arguments
     for (int i = 0; i < args.length; i++) {
@@ -48,13 +39,22 @@ public class CreateQuery {
       } else if ("-e".equals(args[i])) {
         e = Integer.parseInt(args[i + 1]);
         i++;
-      } else if ("-n".equals(args[i])) {
-        n = Integer.parseInt(args[i + 1]);
+      } else if ("-q".equals(args[i])) {
+        q = Integer.parseInt(args[i + 1]);
         i++;
       } else if ("-kmer".equals(args[i])) {
         kmerLength = Integer.parseInt(args[i + 1]);
         i++;
       }
+    }
+
+    // in debug mode set all command line parameters
+    if (DEBUG) {
+      q = DebugConfig.Q;
+      e = DebugConfig.E;
+      kmerLength = DebugConfig.KMERLENGTH;
+      filePath = DebugConfig.FILEPATH;
+      queryPath = DebugConfig.QUERYPATH;
     }
 
     if (filePath == null) {
@@ -81,7 +81,7 @@ public class CreateQuery {
     int totalKmerCount = sequence.length() - kmerLength + 1;
 
     BufferedWriter writer = new BufferedWriter(new FileWriter(queryPath));
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < q; i++) {
       // find a random k-mer
       int randKmerNo = random.nextInt(totalKmerCount);
       String kmer = sequence.substring(randKmerNo, randKmerNo + kmerLength);

@@ -21,24 +21,23 @@ import org.apache.lucene.util.Version;
 
 public class IndexChromosome {
 
-  public static final boolean DEBUG = true;
+  public static final boolean DEBUG = DebugConfig.DEBUG;
 
-  public static int n = 8;
+  public static int n = DefaultConfig.N;
 
-  public static int e = 4;
+  public static int e = DefaultConfig.E;
 
-  public static boolean indexWithEditDistance = false;
+  public static boolean indexWithED = DefaultConfig.INDEXWITHED;
 
-  public static int kmerLength = 70;
+  public static int kmerLength = DefaultConfig.KMERLENGTH;
 
-  public static String homePath = System.getProperty("user.home")
-      + System.getProperty("file.separator");
+  public static String homePath = DefaultConfig.HOMEPATH;
 
-  public static String filePath = null;
+  public static String filePath = DefaultConfig.FILEPATH;
 
-  public static String indexPath = null;
+  public static String indexPath = DefaultConfig.INDEXPATH;
 
-  public static String field = "contents";
+  public static String field = DefaultConfig.FIELD;
 
   public static String usage = "Usage: IndexChromosome -index indexPath -file filePath -kmer [70] -n [8] -e [4]";
 
@@ -59,7 +58,7 @@ public class IndexChromosome {
         i++;
       } else if ("-e".equals(args[i])) {
         // if edit distance is given, so index with edit distance
-        indexWithEditDistance = true;
+        indexWithED = true;
         e = Integer.parseInt(args[i + 1]);
         i++;
       }
@@ -67,12 +66,12 @@ public class IndexChromosome {
 
     // in debug mode set all command line parameters
     if (DEBUG) {
-      n = 8;
-      e = 4;
-      indexWithEditDistance = true;
-      kmerLength = 70;
-      indexPath = "/home/byildiz/kmer/index_dna";
-      filePath = "/home/byildiz/kmer/dna.fasta";
+      n = DebugConfig.N;
+      e = DebugConfig.E;
+      indexWithED = DebugConfig.INDEXWITHED;
+      kmerLength = DebugConfig.KMERLENGTH;
+      indexPath = DebugConfig.INDEXPATH;
+      filePath = DebugConfig.FILEPATH;
     }
 
     if (indexPath == null || filePath == null) {
@@ -81,7 +80,7 @@ public class IndexChromosome {
     }
 
     // add k-mer length and n to indexPath for prevent confusion
-    if (indexWithEditDistance)
+    if (indexWithED)
       indexPath += "_" + kmerLength + "_" + n + "_" + e;
     else
       indexPath += "_" + kmerLength + "_" + n;
@@ -91,7 +90,7 @@ public class IndexChromosome {
     Date end = null;
 
     System.out.println("Indexing started...\n");
-    if (indexWithEditDistance)
+    if (indexWithED)
       System.out.println("Indexing with edit distance\n");
 
     Directory dir = FSDirectory.open(new File(indexPath));
@@ -185,7 +184,7 @@ public class IndexChromosome {
         break;
       }
       String ngram = kmer.substring(0, n);
-      if (indexWithEditDistance) {
+      if (indexWithED) {
         for (int j = Math.max(i - e, 0); j <= i + e; j++) {
           buffer.append(ngram + j + " ");
         }

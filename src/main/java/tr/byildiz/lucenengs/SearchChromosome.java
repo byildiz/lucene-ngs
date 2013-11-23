@@ -25,34 +25,33 @@ import org.apache.lucene.store.FSDirectory;
 
 public class SearchChromosome {
 
-  public static final boolean DEBUG = false;
+  public static final boolean DEBUG = DebugConfig.DEBUG;
 
-  public static int n = 8;
+  public static int n = DefaultConfig.N;
 
-  public static int e = 4;
+  public static int e = DefaultConfig.E;
 
-  public static int repeat = 1;
+  public static int repeat = DefaultConfig.REPEAT;
 
-  public static int kmerLength = 70;
+  public static int kmerLength = DefaultConfig.KMERLENGTH;
 
-  public static boolean more = false;
+  public static boolean more = DefaultConfig.MORE;
 
-  public static String homePath = System.getProperty("user.home")
-      + System.getProperty("file.separator");
+  public static String homePath = DefaultConfig.HOMEPATH;
 
   public static String queryKmer = null;
 
-  public static String indexPath = null;
+  public static String indexPath = DefaultConfig.INDEXPATH;
 
-  public static String queryPath = null;
+  public static String queryPath = DefaultConfig.QUERYPATH;
 
-  public static String resultsPath = null;
+  public static String resultsPath = DefaultConfig.RESULTSPATH;
 
-  public static String searchMethod = "AnF";
+  public static String searchMethod = DefaultConfig.SEARCHMETHOD;
 
-  public static String field = IndexChromosome.field;
+  public static String field = DefaultConfig.FIELD;
 
-  public static String[] methods = { "Tocc", "AnFP", "AnF", "AnFPE" };
+  public static String[] methods = DefaultConfig.METHODS;
 
   public static String bases = null;
 
@@ -95,13 +94,15 @@ public class SearchChromosome {
 
     // in debug mode set all command line parameters
     if (DEBUG) {
-      n = 8;
-      e = 4;
-      repeat = 1;
-      kmerLength = 70;
-      indexPath = "/home/byildiz/kmer/index_dna";
-      queryPath = "/home/byildiz/kmer/query.txt";
-      resultsPath = "/home/byildiz/kmer/AnF_results.txt";
+      n = DebugConfig.N;
+      e = DebugConfig.E;
+      more = DebugConfig.MORE;
+      repeat = DebugConfig.REPEAT;
+      kmerLength = DebugConfig.KMERLENGTH;
+      searchMethod = DebugConfig.SEARCHMETHOD;
+      indexPath = DebugConfig.INDEXPATH;
+      queryPath = DebugConfig.QUERYPATH;
+      resultsPath = DebugConfig.RESULTSPATH;
     }
 
     if (indexPath == null || queryPath == null || resultsPath == null) {
