@@ -21,9 +21,13 @@ import org.apache.lucene.util.Version;
 
 public class IndexChromosome {
 
-  public static final boolean DEBUG = false;
+  public static final boolean DEBUG = true;
 
   public static int n = 8;
+
+  public static int e = 4;
+
+  public static boolean indexWithEditDistance = false;
 
   public static int kmerLength = 70;
 
@@ -36,7 +40,7 @@ public class IndexChromosome {
 
   public static String field = "contents";
 
-  public static String usage = "Usage: IndexChromosome -index indexPath -file filePath -kmer [70] -n [8]";
+  public static String usage = "Usage: IndexChromosome -index indexPath -file filePath -kmer [70] -n [8] -e [4]";
 
   public static void main(String[] args) throws IOException {
     // parse system arguments
@@ -53,17 +57,21 @@ public class IndexChromosome {
       } else if ("-n".equals(args[i])) {
         n = Integer.parseInt(args[i + 1]);
         i++;
+      } else if ("-e".equals(args[i])) {
+        // if edit distance is given, so index with edit distance
+        indexWithEditDistance = true;
+        e = Integer.parseInt(args[i + 1]);
+        i++;
       }
     }
-
-    // add k-mer length and n to indexPath for prevent confusion
-    indexPath += "_" + kmerLength + "_" + n;
 
     // in debug mode set all command line parameters
     if (DEBUG) {
       n = 8;
+      e = 4;
+      indexWithEditDistance = true;
       kmerLength = 70;
-      indexPath = "/home/byildiz/kmer/index_dna_70_8";
+      indexPath = "/home/byildiz/kmer/index_dna";
       filePath = "/home/byildiz/kmer/dna.fasta";
     }
 
@@ -72,9 +80,19 @@ public class IndexChromosome {
       System.exit(0);
     }
 
+    // add k-mer length and n to indexPath for prevent confusion
+    if (indexWithEditDistance)
+      indexPath += "_" + kmerLength + "_" + n + "_" + e;
+    else
+      indexPath += "_" + kmerLength + "_" + n;
+
     // get the start time
     Date start = new Date();
     Date end = null;
+
+    System.out.println("Indexing started...\n");
+    if (indexWithEditDistance)
+      System.out.println("Indexing with edit distance\n");
 
     Directory dir = FSDirectory.open(new File(indexPath));
     Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_31);
@@ -109,7 +127,7 @@ public class IndexChromosome {
       // buffer = buffer.delete(0, 1);
 
       // index k-mer with n-grams
-      indexKmer(writer, kmer, n);
+      indexKmer(writer, kmer);
       kmerCount++;
 
       if (kmerCount % 10000 == 0) {
@@ -148,9 +166,7 @@ public class IndexChromosome {
     System.out.println("Total " + kmerCount + " kmer indexed");
   }
 
-  static void indexKmer(IndexWriter writer, String kmer, int n)
-      throws IOException {
-
+  static void indexKmer(IndexWriter writer, String kmer) throws IOException {
     Document doc = new Document();
 
     // // store raw kmer for future use
@@ -164,11 +180,18 @@ public class IndexChromosome {
 
     // create a string contains all possible n-grams in given k-mer
     StringBuilder buffer = new StringBuilder();
-    while (true) {
+    for (int i = 0;; i++) {
       if (kmer.length() < n) {
         break;
       }
-      buffer.append(kmer.substring(0, n) + " ");
+      String ngram = kmer.substring(0, n);
+      if (indexWithEditDistance) {
+        for (int j = Math.max(i - e, 0); j <= i + e; j++) {
+          buffer.append(ngram + j + " ");
+        }
+      } else {
+        buffer.append(ngram + " ");
+      }
       kmer = kmer.substring(1);
     }
 

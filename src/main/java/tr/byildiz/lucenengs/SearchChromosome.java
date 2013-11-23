@@ -52,13 +52,15 @@ public class SearchChromosome {
 
   public static String field = IndexChromosome.field;
 
-  public static String[] methods = { "Tocc", "AnFP", "AnF" };
+  public static String[] methods = { "Tocc", "AnFP", "AnF", "AnFPE" };
 
   public static String bases = null;
 
-  public static String usage = "Usage: SearchChromosome -method ([AnF],AnFP,Tocc) -index indexPath -query queryPath -results resultsPath -kmer kmerLength -repeat [1] -more -n [8] -e [4]";
+  public static String usage = "Usage: SearchChromosome -method ([AnF],AnFP,AnFPE,Tocc) -index indexPath -query queryPath -results resultsPath -kmer kmerLength -repeat [1] -more -n [8] -e [4]";
 
   public static void main(String[] args) throws Exception {
+    boolean printMethod = false;
+
     // parse system arguments
     for (int i = 0; i < args.length; i++) {
       if ("-index".equals(args[i])) {
@@ -74,6 +76,7 @@ public class SearchChromosome {
         queryPath = homePath + args[i + 1];
         i++;
       } else if ("-method".equals(args[i])) {
+        printMethod = true;
         searchMethod = args[i + 1];
         i++;
       } else if ("-repeat".equals(args[i])) {
@@ -89,9 +92,6 @@ public class SearchChromosome {
         i++;
       }
     }
-    
-    // add k-mer length and n to indexPath for prevent confusion
-    indexPath += "_" + kmerLength + "_" + n;
 
     // in debug mode set all command line parameters
     if (DEBUG) {
@@ -99,17 +99,27 @@ public class SearchChromosome {
       e = 4;
       repeat = 1;
       kmerLength = 70;
-      indexPath = "/home/byildiz/kmer/index_dna_70_8";
+      indexPath = "/home/byildiz/kmer/index_dna";
       queryPath = "/home/byildiz/kmer/query.txt";
       resultsPath = "/home/byildiz/kmer/AnF_results.txt";
     }
-    
+
     if (indexPath == null || queryPath == null || resultsPath == null) {
       System.out.println(usage);
       System.exit(0);
     }
 
+    // add k-mer length and n to indexPath for prevent confusion
+    if (searchMethod.equals("AnFPE"))
+      indexPath += "_" + kmerLength + "_" + n + "_" + e;
+    else
+      indexPath += "_" + kmerLength + "_" + n;
+
     Date globalStart = new Date();
+
+    System.out.println("Searcing started...\n");
+    if (printMethod)
+      System.out.println("Search Method: " + searchMethod + "\n");
 
     long allTime = 0;
     long allSearchTime = 0;
@@ -166,7 +176,7 @@ public class SearchChromosome {
           Query query = null;
           if (searchMethod.equals("AnF"))
             query = prepareAnFQuery(field, qmer, n, e);
-          else if (searchMethod.equals("AnFP"))
+          else if (searchMethod.equals("AnFP") || searchMethod.equals("AnFPE"))
             query = prepareAnFPQuery(field, qmer, n, e);
           else if (searchMethod.equals("Tocc"))
             query = prepareToccQuery(field, qmer, n, e);
@@ -375,16 +385,24 @@ public class SearchChromosome {
         } else {
           ngram = copy.substring(0, n);
         }
-        // calculate the position of ngram in query
+        // calculate the position of n-gram in query
         int position = i + (count * n);
-        int start = position - e;
-        int end = position + e;
-        // create a new span range query
-        Term term = new Term(field, ngram);
-        SpanTermQuery termQuery = new SpanTermQuery(term);
-        SpanPositionRangeQuery rangeQuery = new SpanPositionRangeQuery(
-            termQuery, start, end);
-        filter.add(rangeQuery, BooleanClause.Occur.SHOULD);
+
+        if (searchMethod.equals("AnFPE")) {
+          // create term with position of n-gram
+          Term term = new Term(field, ngram + position);
+          TermQuery termQuery = new TermQuery(term);
+          filter.add(termQuery, BooleanClause.Occur.SHOULD);
+        } else {
+          int start = position - e;
+          int end = position + e;
+          // create a new span range query
+          Term term = new Term(field, ngram);
+          SpanTermQuery termQuery = new SpanTermQuery(term);
+          SpanPositionRangeQuery rangeQuery = new SpanPositionRangeQuery(
+              termQuery, start, end);
+          filter.add(rangeQuery, BooleanClause.Occur.SHOULD);
+        }
 
         // after add a new should match increase the number of should match
         shouldMatchNumber++;
