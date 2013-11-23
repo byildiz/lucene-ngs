@@ -31,6 +31,10 @@ public class SearchChromosome {
 
   public static int e = DefaultConfig.E;
 
+  public static boolean withED = DefaultConfig.WITHED;
+
+  public static boolean withHash = DefaultConfig.WITHHASH;
+
   public static int repeat = DefaultConfig.REPEAT;
 
   public static int kmerLength = DefaultConfig.KMERLENGTH;
@@ -51,15 +55,11 @@ public class SearchChromosome {
 
   public static String field = DefaultConfig.FIELD;
 
-  public static String[] methods = DefaultConfig.METHODS;
-
   public static String bases = null;
 
-  public static String usage = "Usage: SearchChromosome -method ([AnF],AnFP,AnFPE,Tocc) -index indexPath -query queryPath -results resultsPath -kmer kmerLength -repeat [1] -more -n [8] -e [4]";
+  public static String usage = "Usage: SearchChromosome -method ([AnF],AnFP,AnFPE,Tocc) -index indexPath -query queryPath -results resultsPath -kmer kmerLength -repeat [1] -more -hash -n [8] -e [4]";
 
   public static void main(String[] args) throws Exception {
-    boolean printMethod = false;
-
     // parse system arguments
     for (int i = 0; i < args.length; i++) {
       if ("-index".equals(args[i])) {
@@ -75,14 +75,18 @@ public class SearchChromosome {
         queryPath = homePath + args[i + 1];
         i++;
       } else if ("-method".equals(args[i])) {
-        printMethod = true;
         searchMethod = args[i + 1];
+        resultsPath = homePath + searchMethod + "_results.txt";
         i++;
       } else if ("-repeat".equals(args[i])) {
         repeat = Integer.parseInt(args[i + 1]);
         i++;
       } else if ("-more".equals(args[i])) {
         more = true;
+      } else if ("-hash".equals(args[i])) {
+        withHash = true;
+      } else if ("-ed".equals(args[i])) {
+        withED = true;
       } else if ("-results".equals(args[i])) {
         resultsPath = homePath + args[i + 1];
         i++;
@@ -96,6 +100,8 @@ public class SearchChromosome {
     if (DEBUG) {
       n = DebugConfig.N;
       e = DebugConfig.E;
+      withED = DebugConfig.WITHED;
+      withHash = DebugConfig.WITHHASH;
       more = DebugConfig.MORE;
       repeat = DebugConfig.REPEAT;
       kmerLength = DebugConfig.KMERLENGTH;
@@ -111,16 +117,16 @@ public class SearchChromosome {
     }
 
     // add k-mer length and n to indexPath for prevent confusion
-    if (searchMethod.equals("AnFPE"))
-      indexPath += "_" + kmerLength + "_" + n + "_" + e;
-    else
-      indexPath += "_" + kmerLength + "_" + n;
+    indexPath += "_" + kmerLength + "_" + n;
+    if (withED)
+      indexPath += "_withED";
+    if (withHash)
+      indexPath += "_withHash";
 
     Date globalStart = new Date();
 
     System.out.println("Searcing started...\n");
-    if (printMethod)
-      System.out.println("Search Method: " + searchMethod + "\n");
+    System.out.println("Search Method: " + searchMethod + "\n");
 
     long allTime = 0;
     long allSearchTime = 0;
@@ -152,117 +158,108 @@ public class SearchChromosome {
       writer.append("TESTS FOR QUERY: " + queryKmer + "\n");
       writer.newLine();
 
-      // search for just selected method
-      methods = new String[] { searchMethod };
-      for (String m : methods) {
-        searchMethod = m;
+      long totalEdTime = 0;
+      long edTime = 0;
+      long searchTime = 0;
+      long totalSearchTime = 0;
+      long totalTime = 0;
+      int numHits = 0;
+      int numFounds = 0;
+      ScoreDoc[] hits = null;
+      boolean[] founds = null;
+      int[] distances = null;
+      for (int r = 0; r < repeat; r++) {
+        // all bases should be lower case because lucene index in lower case
+        String qmer = queryKmer.toLowerCase();
 
-        writer.append("SEARCH METHOD: " + searchMethod + "\n");
-        writer.newLine();
+        Query query = null;
+        if (searchMethod.equals("AnF"))
+          query = prepareAnFQuery(field, qmer, n, e);
+        else if (searchMethod.equals("AnFP") || searchMethod.equals("AnFPE"))
+          query = prepareAnFPQuery(field, qmer, n, e);
+        else if (searchMethod.equals("Tocc"))
+          query = prepareToccQuery(field, qmer, n, e);
 
-        long totalEdTime = 0;
-        long edTime = 0;
-        long searchTime = 0;
-        long totalSearchTime = 0;
-        long totalTime = 0;
-        int numHits = 0;
-        int numFounds = 0;
-        ScoreDoc[] hits = null;
-        boolean[] founds = null;
-        int[] distances = null;
-        for (int r = 0; r < repeat; r++) {
-          // all bases should be lower case because lucene index in lower case
-          String qmer = queryKmer.toLowerCase();
+        Date start = new Date();
 
-          Query query = null;
-          if (searchMethod.equals("AnF"))
-            query = prepareAnFQuery(field, qmer, n, e);
-          else if (searchMethod.equals("AnFP") || searchMethod.equals("AnFPE"))
-            query = prepareAnFPQuery(field, qmer, n, e);
-          else if (searchMethod.equals("Tocc"))
-            query = prepareToccQuery(field, qmer, n, e);
+        TopDocs results = searcher.search(query, Integer.MAX_VALUE);
 
-          Date start = new Date();
+        // search time
+        Date end = new Date();
+        searchTime = end.getTime() - start.getTime();
+        // set start again for edit distance time
+        start = new Date();
 
-          TopDocs results = searcher.search(query, Integer.MAX_VALUE);
+        hits = results.scoreDocs;
+        numHits = results.totalHits;
 
-          // search time
-          Date end = new Date();
-          searchTime = end.getTime() - start.getTime();
-          // set start again for edit distance time
-          start = new Date();
-
-          hits = results.scoreDocs;
-          numHits = results.totalHits;
-
-          // calculate edit distances of found k-mers
-          founds = new boolean[numHits];
-          distances = new int[numHits];
-          for (int i = 0; i < numHits; i++) {
-            int docID = hits[i].doc;
-            String kmer = getBases(docID, kmerLength);
-            distances[i] = editDistance(queryKmer, kmer);
-            if (distances[i] <= e) {
-              founds[i] = editDistance(queryKmer, kmer) <= e;
-              // just for first repeat
-              if (r == 0)
-                numFounds++;
-            }
+        // calculate edit distances of found k-mers
+        founds = new boolean[numHits];
+        distances = new int[numHits];
+        for (int i = 0; i < numHits; i++) {
+          int docID = hits[i].doc;
+          String kmer = getBases(docID, kmerLength);
+          distances[i] = editDistance(queryKmer, kmer);
+          if (distances[i] <= e) {
+            founds[i] = editDistance(queryKmer, kmer) <= e;
+            // just for first repeat
+            if (r == 0)
+              numFounds++;
           }
-
-          // edit distance time
-          end = new Date();
-          edTime = end.getTime() - start.getTime();
-
-          totalSearchTime += searchTime;
-          totalEdTime += edTime;
-          totalTime += searchTime + edTime;
-
-          writer.append((r + 1) + ". repeat time: " + edTime + "\n");
-        } // repeat loop
-        writer.newLine();
-
-        // write out found k-mers
-        if (more) {
-          for (int i = 0; i < numHits; i++) {
-            int docID = hits[i].doc;
-            // Document doc = searcher.doc(docID);
-            // String kmer = doc.get("kmer");
-            String kmer = getBases(docID, kmerLength);
-            if (founds[i]) {
-              writer.append((i + 1) + ". found: " + kmer + " " + distances[i]);
-              writer.newLine();
-            } else {
-              writer.append((i + 1) + ". false: " + kmer + " " + distances[i]);
-              writer.newLine();
-            }
-          }
-          writer.newLine();
         }
-        allSearchTime += totalSearchTime;
-        allEdTime += totalEdTime;
-        allTime += totalTime;
-        // count each searching
-        searchCount += repeat;
 
-        double meanSearhTime = (double) totalSearchTime / repeat;
-        double meanEdTime = (double) totalEdTime / repeat;
-        double meanTime = (double) totalTime / repeat;
+        // edit distance time
+        end = new Date();
+        edTime = end.getTime() - start.getTime();
 
-        // numHits: after filter k-mer
-        // numFounds: after real edit distance comparison
-        writer.append(numHits + " total collected k-mers" + "\n");
-        writer.append(numFounds + " total found k-mers" + "\n");
+        totalSearchTime += searchTime;
+        totalEdTime += edTime;
+        totalTime += searchTime + edTime;
+
+        writer.append((r + 1) + ". repeat time: " + edTime + "\n");
+      } // repeat loop
+      writer.newLine();
+
+      // write out found k-mers
+      if (more) {
+        for (int i = 0; i < numHits; i++) {
+          int docID = hits[i].doc;
+          // Document doc = searcher.doc(docID);
+          // String kmer = doc.get("kmer");
+          String kmer = getBases(docID, kmerLength);
+          if (founds[i]) {
+            writer.append((i + 1) + ". found: " + kmer + " " + distances[i]);
+            writer.newLine();
+          } else {
+            writer.append((i + 1) + ". false: " + kmer + " " + distances[i]);
+            writer.newLine();
+          }
+        }
         writer.newLine();
+      }
+      allSearchTime += totalSearchTime;
+      allEdTime += totalEdTime;
+      allTime += totalTime;
+      // count each searching
+      searchCount += repeat;
 
-        writer.append("SEARCH TIME: " + totalSearchTime + "\n");
-        writer.append("ED TIME: " + totalEdTime + "\n");
-        writer.append("TOTAL TIME: " + totalTime + "\n");
-        writer.append("SEARCH MEAN TIME: " + meanSearhTime + "\n");
-        writer.append("ED MEAN TIME: " + meanEdTime + "\n");
-        writer.append("TOTAL MEAN TIME: " + meanTime + "\n");
-        writer.newLine();
-      } // method loop
+      double meanSearhTime = (double) totalSearchTime / repeat;
+      double meanEdTime = (double) totalEdTime / repeat;
+      double meanTime = (double) totalTime / repeat;
+
+      // numHits: after filter k-mer
+      // numFounds: after real edit distance comparison
+      writer.append(numHits + " total collected k-mers" + "\n");
+      writer.append(numFounds + " total found k-mers" + "\n");
+      writer.newLine();
+
+      writer.append("SEARCH TIME: " + totalSearchTime + "\n");
+      writer.append("ED TIME: " + totalEdTime + "\n");
+      writer.append("TOTAL TIME: " + totalTime + "\n");
+      writer.append("SEARCH MEAN TIME: " + meanSearhTime + "\n");
+      writer.append("ED MEAN TIME: " + meanEdTime + "\n");
+      writer.append("TOTAL MEAN TIME: " + meanTime + "\n");
+      writer.newLine();
 
       // write status for each query
       Date globalEnd = new Date();
@@ -315,6 +312,8 @@ public class SearchChromosome {
         break;
       }
       String ngram = qmer.substring(0, n);
+      if (withHash)
+        ngram = ngram.hashCode() + "";
       // create a new term query and increase the number of should match
       Term term = new Term(field, ngram);
       TermQuery termQuery = new TermQuery(term);
@@ -343,6 +342,8 @@ public class SearchChromosome {
         } else {
           ngram = copy.substring(0, n);
         }
+        if (withHash)
+          ngram = ngram.hashCode() + "";
         // create a new term query and increase the number of should match
         Term term = new Term(field, ngram);
         TermQuery termQuery = new TermQuery(term);
@@ -389,16 +390,22 @@ public class SearchChromosome {
         // calculate the position of n-gram in query
         int position = i + (count * n);
 
-        if (searchMethod.equals("AnFPE")) {
+        if (withED) {
           // create term with position of n-gram
-          Term term = new Term(field, ngram + position);
+          ngram = ngram + position;
+          if (withHash)
+            ngram = ngram.hashCode() + "";
+          Term term = new Term(field, ngram);
           TermQuery termQuery = new TermQuery(term);
           filter.add(termQuery, BooleanClause.Occur.SHOULD);
         } else {
+          if (withHash)
+            ngram = ngram.hashCode() + "";
+          Term term = new Term(field, ngram);
+
+          // create a new span range query
           int start = position - e;
           int end = position + e;
-          // create a new span range query
-          Term term = new Term(field, ngram);
           SpanTermQuery termQuery = new SpanTermQuery(term);
           SpanPositionRangeQuery rangeQuery = new SpanPositionRangeQuery(
               termQuery, start, end);

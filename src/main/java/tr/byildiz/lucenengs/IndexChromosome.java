@@ -8,6 +8,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -27,7 +28,9 @@ public class IndexChromosome {
 
   public static int e = DefaultConfig.E;
 
-  public static boolean indexWithED = DefaultConfig.INDEXWITHED;
+  public static boolean withED = DefaultConfig.WITHED;
+
+  public static boolean withHash = DefaultConfig.WITHHASH;
 
   public static int kmerLength = DefaultConfig.KMERLENGTH;
 
@@ -38,6 +41,8 @@ public class IndexChromosome {
   public static String indexPath = DefaultConfig.INDEXPATH;
 
   public static String field = DefaultConfig.FIELD;
+
+  public static int[] indexParts = DefaultConfig.INDEXPARTS;
 
   public static String usage = "Usage: IndexChromosome -index indexPath -file filePath -kmer [70] -n [8] -e [4]";
 
@@ -58,7 +63,7 @@ public class IndexChromosome {
         i++;
       } else if ("-e".equals(args[i])) {
         // if edit distance is given, so index with edit distance
-        indexWithED = true;
+        withED = true;
         e = Integer.parseInt(args[i + 1]);
         i++;
       }
@@ -68,7 +73,8 @@ public class IndexChromosome {
     if (DEBUG) {
       n = DebugConfig.N;
       e = DebugConfig.E;
-      indexWithED = DebugConfig.INDEXWITHED;
+      withED = DebugConfig.WITHED;
+      withHash = DebugConfig.WITHHASH;
       kmerLength = DebugConfig.KMERLENGTH;
       indexPath = DebugConfig.INDEXPATH;
       filePath = DebugConfig.FILEPATH;
@@ -80,18 +86,21 @@ public class IndexChromosome {
     }
 
     // add k-mer length and n to indexPath for prevent confusion
-    if (indexWithED)
-      indexPath += "_" + kmerLength + "_" + n + "_" + e;
-    else
-      indexPath += "_" + kmerLength + "_" + n;
+    indexPath += "_" + kmerLength + "_" + n;
+    if (withED)
+      indexPath += "_withED";
+    if (withHash)
+      indexPath += "_withHash";
 
     // get the start time
     Date start = new Date();
     Date end = null;
 
     System.out.println("Indexing started...\n");
-    if (indexWithED)
+    if (withED)
       System.out.println("Indexing with edit distance\n");
+    if (withHash)
+      System.out.println("Indexing with hash distance\n");
 
     Directory dir = FSDirectory.open(new File(indexPath));
     Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_31);
@@ -106,6 +115,7 @@ public class IndexChromosome {
     BufferedReader reader = new BufferedReader(new FileReader(file));
     StringBuilder buffer = new StringBuilder();
     int kmerCount = 0;
+    int partPointer = 0;
     boolean exit = false;
     while (true) {
       while (buffer.length() < kmerLength + kmerCount) {
@@ -123,11 +133,31 @@ public class IndexChromosome {
       if (exit)
         break;
       String kmer = buffer.substring(kmerCount, kmerCount + kmerLength);
-      // buffer = buffer.delete(0, 1);
 
       // index k-mer with n-grams
       indexKmer(writer, kmer);
       kmerCount++;
+
+      // save a copy of current index after commit all created docs when
+      // kmerCount equals to each amount of index parts.
+      int partAmout = indexParts[partPointer] * 1000000;
+      if (partAmout == kmerCount) {
+        System.out.println("Part " + (partPointer + 1) + " creating started");
+
+        writer.forceMerge(1);
+        writer.commit();
+
+        String partPath = indexPath + "_part" + indexParts[partPointer];
+
+        File indexDirectory = new File(indexPath);
+        File partDirectory = new File(partPath);
+        FileUtils.copyDirectory(indexDirectory, partDirectory);
+
+        System.out.println("Part " + (partPointer + 1) + " was created with "
+            + partAmout + " amount of k-mers");
+
+        partPointer++;
+      }
 
       if (kmerCount % 10000 == 0) {
         end = new Date();
@@ -156,7 +186,8 @@ public class IndexChromosome {
 
     System.out.println("Optimizing index...");
     // before closing index writer optimize index (costly)
-    writer.forceMerge(1); // same with writer.optimize()
+    // same with writer.optimize(), but optimize is deprecated
+    writer.forceMerge(1);
     writer.close();
     System.out.println("Optimization is completed");
 
@@ -184,12 +215,18 @@ public class IndexChromosome {
         break;
       }
       String ngram = kmer.substring(0, n);
-      if (indexWithED) {
+      if (withED) {
         for (int j = Math.max(i - e, 0); j <= i + e; j++) {
-          buffer.append(ngram + j + " ");
+          String term = ngram + j;
+          if (withHash)
+            term = term.hashCode() + "";
+          buffer.append(term + " ");
         }
       } else {
-        buffer.append(ngram + " ");
+        String term = ngram;
+        if (withHash)
+          term = ngram.hashCode() + "";
+        buffer.append(term + " ");
       }
       kmer = kmer.substring(1);
     }
