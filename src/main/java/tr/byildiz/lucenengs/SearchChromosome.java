@@ -1,27 +1,18 @@
 package tr.byildiz.lucenengs;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.LineNumberReader;
-import java.util.Date;
-import java.util.Scanner;
 
-import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.spans.SpanPositionRangeQuery;
 import org.apache.lucene.search.spans.SpanTermQuery;
-import org.apache.lucene.store.FSDirectory;
 
 public class SearchChromosome {
 
@@ -123,173 +114,15 @@ public class SearchChromosome {
     if (withHash)
       indexPath += "_withHash";
 
-    Date globalStart = new Date();
+    
+    // Query query = null;
+    // if (searchMethod.equals("AnF"))
+    // query = prepareAnFQuery(field, qmer, n, e);
+    // else if (searchMethod.equals("AnFP") || searchMethod.equals("AnFPE"))
+    // query = prepareAnFPQuery(field, qmer, n, e);
+    // else if (searchMethod.equals("Tocc"))
+    // query = prepareToccQuery(field, qmer, n, e);
 
-    System.out.println("Searcing started...\n");
-    System.out.println("Search Method: " + searchMethod + "\n");
-
-    long allTime = 0;
-    long allSearchTime = 0;
-    long allEdTime = 0;
-    int searchCount = 0;
-    int queryCount = countLines(queryPath);
-
-    // read all bases to memory
-    readBases();
-
-    File indexDir = new File(indexPath);
-    IndexReader reader = IndexReader.open(FSDirectory.open(indexDir));
-    IndexSearcher searcher = new IndexSearcher(reader);
-
-    File queryFile = new File(queryPath);
-    if (!queryFile.canRead()) {
-      System.out.println("Query file not found or not readable: " + queryPath);
-    }
-
-    File resultsFile = new File(resultsPath);
-    BufferedWriter writer = new BufferedWriter(new FileWriter(resultsFile));
-
-    Scanner scanner = new Scanner(queryFile);
-    while (scanner.hasNextLine()) {
-      queryKmer = scanner.nextLine();
-      if (queryKmer.equals(""))
-        continue;
-
-      writer.append("TESTS FOR QUERY: " + queryKmer + "\n");
-      writer.newLine();
-
-      long totalEdTime = 0;
-      long edTime = 0;
-      long searchTime = 0;
-      long totalSearchTime = 0;
-      long totalTime = 0;
-      int numHits = 0;
-      int numFounds = 0;
-      ScoreDoc[] hits = null;
-      boolean[] founds = null;
-      int[] distances = null;
-      for (int r = 0; r < repeat; r++) {
-        // all bases should be lower case because lucene index in lower case
-        String qmer = queryKmer.toLowerCase();
-
-        Query query = null;
-        if (searchMethod.equals("AnF"))
-          query = prepareAnFQuery(field, qmer, n, e);
-        else if (searchMethod.equals("AnFP") || searchMethod.equals("AnFPE"))
-          query = prepareAnFPQuery(field, qmer, n, e);
-        else if (searchMethod.equals("Tocc"))
-          query = prepareToccQuery(field, qmer, n, e);
-
-        Date start = new Date();
-
-        TopDocs results = searcher.search(query, Integer.MAX_VALUE);
-
-        // search time
-        Date end = new Date();
-        searchTime = end.getTime() - start.getTime();
-        // set start again for edit distance time
-        start = new Date();
-
-        hits = results.scoreDocs;
-        numHits = results.totalHits;
-
-        // calculate edit distances of found k-mers
-        founds = new boolean[numHits];
-        distances = new int[numHits];
-        for (int i = 0; i < numHits; i++) {
-          int docID = hits[i].doc;
-          String kmer = getBases(docID, kmerLength);
-          distances[i] = editDistance(queryKmer, kmer);
-          if (distances[i] <= e) {
-            founds[i] = editDistance(queryKmer, kmer) <= e;
-            // just for first repeat
-            if (r == 0)
-              numFounds++;
-          }
-        }
-
-        // edit distance time
-        end = new Date();
-        edTime = end.getTime() - start.getTime();
-
-        totalSearchTime += searchTime;
-        totalEdTime += edTime;
-        totalTime += searchTime + edTime;
-
-        writer.append((r + 1) + ". repeat time: " + edTime + "\n");
-      } // repeat loop
-      writer.newLine();
-
-      // write out found k-mers
-      if (more) {
-        for (int i = 0; i < numHits; i++) {
-          int docID = hits[i].doc;
-          // Document doc = searcher.doc(docID);
-          // String kmer = doc.get("kmer");
-          String kmer = getBases(docID, kmerLength);
-          if (founds[i]) {
-            writer.append((i + 1) + ". found: " + kmer + " " + distances[i]);
-            writer.newLine();
-          } else {
-            writer.append((i + 1) + ". false: " + kmer + " " + distances[i]);
-            writer.newLine();
-          }
-        }
-        writer.newLine();
-      }
-      allSearchTime += totalSearchTime;
-      allEdTime += totalEdTime;
-      allTime += totalTime;
-      // count each searching
-      searchCount += repeat;
-
-      double meanSearhTime = (double) totalSearchTime / repeat;
-      double meanEdTime = (double) totalEdTime / repeat;
-      double meanTime = (double) totalTime / repeat;
-
-      // numHits: after filter k-mer
-      // numFounds: after real edit distance comparison
-      writer.append(numHits + " total collected k-mers" + "\n");
-      writer.append(numFounds + " total found k-mers" + "\n");
-      writer.newLine();
-
-      writer.append("SEARCH TIME: " + totalSearchTime + "\n");
-      writer.append("ED TIME: " + totalEdTime + "\n");
-      writer.append("TOTAL TIME: " + totalTime + "\n");
-      writer.append("SEARCH MEAN TIME: " + meanSearhTime + "\n");
-      writer.append("ED MEAN TIME: " + meanEdTime + "\n");
-      writer.append("TOTAL MEAN TIME: " + meanTime + "\n");
-      writer.newLine();
-
-      // write status for each query
-      Date globalEnd = new Date();
-      double elapsed = (double) (globalEnd.getTime() - globalStart.getTime()) / 1000;
-      double remaining = elapsed * (queryCount - searchCount) / searchCount;
-      System.out.format("Search count:\t%d\n", searchCount);
-      System.out.format("Elapsed time:\t%.1f seconds\n", elapsed);
-      System.out.format("Remaining time:\t%.1f seconds\n", remaining);
-      System.out.println();
-
-      writer.append("\n\n");
-    } // query loop
-
-    double allSearchMean = (double) allSearchTime / searchCount;
-    double allEdMean = (double) allEdTime / searchCount;
-    double allMean = (double) allTime / searchCount;
-
-    writer.append("TOTAL SEARCH TIME: " + allSearchTime + "\n");
-    writer.append("TOTAL ED TIME: " + allEdTime + "\n");
-    writer.append("GLOBAL TOTAL TIME: " + allTime + "\n");
-    writer.append("TOTAL MEAN SEARCH TIME: " + allSearchMean + "\n");
-    writer.append("TOTAL MEAN ED TIME: " + allEdMean + "\n");
-    writer.append("GLOBAL MEAN TIME: " + allMean + "\n");
-    writer.append("\n\n\n");
-
-    writer.flush();
-    writer.close();
-    scanner.close();
-    searcher.close();
-    reader.close();
   }
 
   public static Query prepareToccQuery(String field, String qmer, int n, int e) {
@@ -305,7 +138,7 @@ public class SearchChromosome {
     query.setMinimumNumberShouldMatch(T);
 
     // use beginning and end extended of query k-mer with n - 1 times "x"
-    qmer = IndexChromosome.extendKmer(qmer, n);
+    qmer = Utils.extendKmer(qmer, n);
 
     while (true) {
       if (qmer.length() < n) {
@@ -329,7 +162,7 @@ public class SearchChromosome {
     BooleanQuery query = new BooleanQuery();
 
     // use beginning extended of query k-mer with n - 1 times "x"
-    qmer = IndexChromosome.extendBeginningOfKmer(qmer, n);
+    qmer = Utils.extendBeginningOfKmer(qmer, n);
 
     for (int i = 0; i < n; i++) {
       String copy = qmer.substring(i);
@@ -373,7 +206,7 @@ public class SearchChromosome {
     BooleanQuery query = new BooleanQuery();
 
     // use beginning extended of query k-mer with n - 1 times "x"
-    qmer = IndexChromosome.extendBeginningOfKmer(qmer, n);
+    qmer = Utils.extendBeginningOfKmer(qmer, n);
 
     for (int i = 0; i < n; i++) {
       String copy = qmer.substring(i);

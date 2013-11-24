@@ -26,6 +26,11 @@ public final class DefaultConfig {
    * k-mer length
    */
   public static final int KMERLENGTH = 70;
+  
+  /**
+   * indexing offset
+   */
+  public static final int OFFSET = 1;
 
   /**
    * if more equal to true, searcher writes found k-mers to results file
@@ -69,6 +74,11 @@ public final class DefaultConfig {
    * searches with the hashes of terms
    */
   public static final boolean WITHHASH = false;
+  
+  /**
+   * if true, compress terms
+   */
+  public static final boolean WITHCOMPRESSED = true;
 
   /**
    * file path to write the search results

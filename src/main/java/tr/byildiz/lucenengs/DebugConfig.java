@@ -17,13 +17,13 @@ public final class DebugConfig {
   public static final boolean MORE = false;
 
   public static final String FILEPATH = DefaultConfig.HOMEPATH
-      + "kmer/dna.fasta";
+      + "kmer/genome.fasta";
 
   public static final String INDEXPATH = DefaultConfig.HOMEPATH
-      + "kmer/index_dna";
+      + "kmer/index_genome";
 
   public static final String QUERYPATH = DefaultConfig.HOMEPATH
-      + "kmer/query.txt";
+      + "kmer/read1.sim";
 
   public static final String SEARCHMETHOD = DefaultConfig.METHODS.AnFPwithHash;
 
