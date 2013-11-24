@@ -124,7 +124,6 @@ public class IndexChromosome {
     File file = new File(filePath);
     BufferedReader reader = new BufferedReader(new FileReader(file));
     StringBuilder buffer = new StringBuilder();
-    int offset = 0;
     int kmerCount = 0;
     int partPointer = 0;
     boolean exit = false;
