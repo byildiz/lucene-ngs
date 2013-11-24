@@ -38,6 +38,8 @@ public class IndexChromosome {
 
   public static int slide = DefaultConfig.SLIDE;
 
+  public static int indexSize = DefaultConfig.INDEXSIZE;
+
   public static String homePath = DefaultConfig.HOMEPATH;
 
   public static String filePath = DefaultConfig.FILEPATH;
@@ -74,6 +76,9 @@ public class IndexChromosome {
         withHash = true;
       } else if ("-slide".equals(args[i])) {
         slide = Integer.parseInt(args[i + 1]);
+        i++;
+      } else if ("-index-size".equals(args[i])) {
+        indexSize = Integer.parseInt(args[i + 1]);
         i++;
       }
     }
@@ -183,6 +188,9 @@ public class IndexChromosome {
             estimated);
         System.out.println();
       }
+
+      if (indexSize != 0 && kmerCount == indexSize)
+        break;
     }
     reader.close();
     System.out.println("Indexing is completed");

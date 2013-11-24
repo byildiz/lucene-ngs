@@ -115,4 +115,6 @@ public final class DefaultConfig {
   
   public static final int POLLSIZE = 20;
 
+  public static int INDEXSIZE = 0;
+
 }

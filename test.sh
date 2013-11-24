@@ -1,6 +1,6 @@
 cd /root/lucene-ngs
 
-java -d64 -Xms25G -Xmx40G -Xss25G -cp target/lucene-ngs-1.0-SNAPSHOT-jar-with-dependencies.jar tr.byildiz.lucenengs.IndexChromosome -index index_genome -file genome.fasta -kmer 100 -slide 70 -n 12
+java -d64 -Xms25G -Xmx40G -Xss25G -cp target/lucene-ngs-1.0-SNAPSHOT-jar-with-dependencies.jar tr.byildiz.lucenengs.IndexChromosome -index index_genome -file genome.fasta -kmer 100 -slide 70 -n 12 -index-size 2850
 
 #java -d64 -Xms25G -Xmx40G -Xss25G -cp target/lucene-ngs-1.0-SNAPSHOT-jar-with-dependencies.jar tr.byildiz.lucenengs.CreateQuery -n 100 -e 4 -kmer 70 -file chromosome_01.fa -out query.txt
 
