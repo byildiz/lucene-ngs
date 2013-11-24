@@ -8,7 +8,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -37,7 +36,7 @@ public class IndexChromosome {
 
   public static int kmerLength = DefaultConfig.KMERLENGTH;
 
-  public static int offset = DefaultConfig.OFFSET;
+  public static int slide = DefaultConfig.SLIDE;
 
   public static String homePath = DefaultConfig.HOMEPATH;
 
@@ -73,8 +72,8 @@ public class IndexChromosome {
         i++;
       } else if ("-hash".equals(args[i])) {
         withHash = true;
-      } else if ("-offset".equals(args[i])) {
-        offset = Integer.parseInt(args[i + 1]);
+      } else if ("-slide".equals(args[i])) {
+        slide = Integer.parseInt(args[i + 1]);
         i++;
       }
     }
@@ -124,6 +123,7 @@ public class IndexChromosome {
     File file = new File(filePath);
     BufferedReader reader = new BufferedReader(new FileReader(file));
     StringBuilder buffer = new StringBuilder();
+    int offset = 0;
     int kmerCount = 0;
     int partPointer = 0;
     boolean exit = false;
@@ -143,7 +143,7 @@ public class IndexChromosome {
       if (exit)
         break;
       String kmer = buffer.substring(offset, offset + kmerLength);
-      offset += 70;
+      offset += slide;
 
       // index k-mer with n-grams
       indexKmer(writer, kmer);
@@ -151,24 +151,24 @@ public class IndexChromosome {
 
       // save a copy of current index after commit all created docs when
       // kmerCount equals to each amount of index parts.
-      int partAmout = indexParts[partPointer] * 1000000;
-      if (partAmout == kmerCount) {
-        System.out.println("Part " + (partPointer + 1) + " creating started");
-
-        writer.forceMerge(1);
-        writer.commit();
-
-        String partPath = indexPath + "_part" + indexParts[partPointer];
-
-        File indexDirectory = new File(indexPath);
-        File partDirectory = new File(partPath);
-        FileUtils.copyDirectory(indexDirectory, partDirectory);
-
-        System.out.println("Part " + (partPointer + 1) + " was created with "
-            + partAmout + " amount of k-mers");
-
-        partPointer++;
-      }
+      // int partAmout = indexParts[partPointer] * 1000000;
+      // if (partAmout == kmerCount) {
+      // System.out.println("Part " + (partPointer + 1) + " creating started");
+      //
+      // writer.forceMerge(1);
+      // writer.commit();
+      //
+      // String partPath = indexPath + "_part" + indexParts[partPointer];
+      //
+      // File indexDirectory = new File(indexPath);
+      // File partDirectory = new File(partPath);
+      // FileUtils.copyDirectory(indexDirectory, partDirectory);
+      //
+      // System.out.println("Part " + (partPointer + 1) + " was created with "
+      // + partAmout + " amount of k-mers");
+      //
+      // partPointer++;
+      // }
 
       if (kmerCount % 10000 == 0) {
         end = new Date();
@@ -183,6 +183,9 @@ public class IndexChromosome {
             estimated);
         System.out.println();
       }
+
+      if (kmerCount == 200000)
+        break;
     }
     reader.close();
     System.out.println("Indexing is completed");

@@ -30,7 +30,7 @@ public final class DefaultConfig {
   /**
    * indexing offset
    */
-  public static final int OFFSET = 1;
+  public static final int SLIDE = 1;
 
   /**
    * if more equal to true, searcher writes found k-mers to results file
@@ -112,5 +112,7 @@ public final class DefaultConfig {
    * Note: index parts must be sorted
    */
   public static final int[] INDEXPARTS = { 10, 50, 100, 150, 200 };
+  
+  public static final int POLLSIZE = 20;
 
 }

@@ -41,6 +41,8 @@ public class SearchChromosome {
 
   public static boolean withHash = DefaultConfig.WITHHASH;
 
+  public static int poolSize = DefaultConfig.POLLSIZE;
+
   public static int repeat = DefaultConfig.REPEAT;
 
   public static int kmerLength = DefaultConfig.KMERLENGTH;
@@ -165,7 +167,6 @@ public class SearchChromosome {
     scanner.close();
     Query[] queries = queryList.toArray(new Query[0]);
 
-    int poolSize = 10;
     File indexDir = new File(indexPath);
     for (int i = 0; i < poolSize; i++) {
       File copyDir = new File(indexPath + "_copy" + i);
@@ -214,8 +215,9 @@ public class SearchChromosome {
 
     System.out.println();
     for (int j = 0; j < queryCount; j++) {
-      System.out.println("Query #" + (j + 1) + " time: "
-          + (workTimes[j] / poolSize) + " hits: " + totalHits[j]);
+      double meanTime = (double) workTimes[j] / poolSize;
+      System.out.println("Query #" + (j + 1) + " time: " + meanTime + " hits: "
+          + totalHits[j]);
     }
     System.out.println();
     System.out.println("Overall Time: " + globalTime);
