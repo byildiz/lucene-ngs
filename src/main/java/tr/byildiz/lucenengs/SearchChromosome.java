@@ -4,15 +4,30 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.LineNumberReader;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Scanner;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.spans.SpanPositionRangeQuery;
 import org.apache.lucene.search.spans.SpanTermQuery;
+import org.apache.lucene.store.FSDirectory;
+
+import tr.byildiz.lucenengs.SearchWorker.Results;
 
 public class SearchChromosome {
 
@@ -114,15 +129,96 @@ public class SearchChromosome {
     if (withHash)
       indexPath += "_withHash";
 
-    
-    // Query query = null;
-    // if (searchMethod.equals("AnF"))
-    // query = prepareAnFQuery(field, qmer, n, e);
-    // else if (searchMethod.equals("AnFP") || searchMethod.equals("AnFPE"))
-    // query = prepareAnFPQuery(field, qmer, n, e);
-    // else if (searchMethod.equals("Tocc"))
-    // query = prepareToccQuery(field, qmer, n, e);
+    System.out.println("Searcing started...\n");
+    System.out.println("Search Method: " + searchMethod + "\n");
 
+    // read all bases to memory
+    readBases();
+
+    File queryFile = new File(queryPath);
+    if (!queryFile.canRead()) {
+      System.out.println("Query file not found or not readable: " + queryPath);
+    }
+
+    // get queries
+    Scanner scanner = new Scanner(queryFile);
+    ArrayList<Query> queryList = new ArrayList<>();
+    while (scanner.hasNextLine()) {
+      String line = scanner.nextLine();
+      line = line.trim();
+      // for fasta files
+      if ("".equals(line) || line.startsWith(">") || line.contains("N"))
+        continue;
+
+      line = line.toLowerCase();
+
+      Query query = null;
+      if (searchMethod.equals("AnF"))
+        query = prepareAnFQuery(field, line, n, e);
+      else if (searchMethod.equals("AnFP") || searchMethod.equals("AnFPE"))
+        query = prepareAnFPQuery(field, line, n, e);
+      else if (searchMethod.equals("Tocc"))
+        query = prepareToccQuery(field, line, n, e);
+
+      queryList.add(query);
+    }
+    scanner.close();
+    Query[] queries = queryList.toArray(new Query[0]);
+
+    int poolSize = 10;
+    File indexDir = new File(indexPath);
+    for (int i = 0; i < poolSize; i++) {
+      File copyDir = new File(indexPath + "_copy" + i);
+      if (!copyDir.exists())
+        FileUtils.copyDirectory(indexDir, copyDir);
+    }
+
+    Date globalStart = new Date();
+
+    // create thread pool, assign a searcher to each threads
+    IndexReader[] readers = new IndexReader[poolSize];
+    IndexSearcher[] searchers = new IndexSearcher[poolSize];
+    ExecutorService threadPool = Executors.newFixedThreadPool(poolSize);
+    Set<Future<Results[]>> searchResults = new HashSet<>();
+    for (int i = 0; i < poolSize; i++) {
+      File copyDir = new File(indexPath + "_copy" + i);
+      readers[i] = DirectoryReader.open(FSDirectory.open(copyDir));
+      searchers[i] = new IndexSearcher(readers[i]);
+      SearchWorker worker = new SearchWorker(i + 1, searchers[i], queries);
+      searchResults.add(threadPool.submit(worker));
+    }
+    threadPool.shutdown();
+    while (!threadPool.isTerminated()) {
+    }
+
+    // write status for each query
+    Date globalEnd = new Date();
+    long globalTime = globalEnd.getTime() - globalStart.getTime();
+
+    // close readers
+    for (int i = 0; i < poolSize; i++) {
+      readers[i].close();
+    }
+
+    int queryCount = queries.length;
+    int[] totalHits = new int[queryCount];
+    long[] workTimes = new long[queryCount];
+    for (Future<Results[]> f : searchResults) {
+      Results[] results = f.get();
+      for (int j = 0; j < queryCount; j++) {
+        Results r = results[j];
+        totalHits[j] += r.topDocs.totalHits;
+        workTimes[j] += r.workTime;
+      }
+    }
+
+    System.out.println();
+    for (int j = 0; j < queryCount; j++) {
+      System.out.println("Query #" + (j + 1) + " time: "
+          + (workTimes[j] / poolSize) + " hits: " + totalHits[j]);
+    }
+    System.out.println();
+    System.out.println("Overall Time: " + globalTime);
   }
 
   public static Query prepareToccQuery(String field, String qmer, int n, int e) {
@@ -138,7 +234,7 @@ public class SearchChromosome {
     query.setMinimumNumberShouldMatch(T);
 
     // use beginning and end extended of query k-mer with n - 1 times "x"
-    qmer = Utils.extendKmer(qmer, n);
+    // qmer = Utils.extendKmer(qmer, n);
 
     while (true) {
       if (qmer.length() < n) {
@@ -162,7 +258,7 @@ public class SearchChromosome {
     BooleanQuery query = new BooleanQuery();
 
     // use beginning extended of query k-mer with n - 1 times "x"
-    qmer = Utils.extendBeginningOfKmer(qmer, n);
+    // qmer = Utils.extendBeginningOfKmer(qmer, n);
 
     for (int i = 0; i < n; i++) {
       String copy = qmer.substring(i);
@@ -171,7 +267,8 @@ public class SearchChromosome {
       while (true) {
         String ngram = null;
         if (copy.length() < n) {
-          ngram = padEndOfNgram(copy, n);
+          // ngram = padEndOfNgram(copy, n);
+          break;
         } else {
           ngram = copy.substring(0, n);
         }
@@ -206,7 +303,7 @@ public class SearchChromosome {
     BooleanQuery query = new BooleanQuery();
 
     // use beginning extended of query k-mer with n - 1 times "x"
-    qmer = Utils.extendBeginningOfKmer(qmer, n);
+    // qmer = Utils.extendBeginningOfKmer(qmer, n);
 
     for (int i = 0; i < n; i++) {
       String copy = qmer.substring(i);

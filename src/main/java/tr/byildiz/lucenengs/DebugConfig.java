@@ -30,8 +30,8 @@ public final class DebugConfig {
   public static final String RESULTSPATH = DefaultConfig.HOMEPATH
       + SEARCHMETHOD + "_results.txt";
 
-  public static final boolean WITHED = true;
+  public static final boolean WITHED = false;
 
-  public static final boolean WITHHASH = true;
+  public static final boolean WITHHASH = false;
 
 }

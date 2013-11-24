@@ -1,6 +1,11 @@
 package tr.byildiz.lucenengs;
 
+import org.apache.log4j.Logger;
+
 public class Utils {
+
+  public static Logger log = Logger.getLogger("MainLogger");
+
   public static int compress(String term) {
     if (term == null || term.length() == 0)
       return 0;
@@ -30,7 +35,7 @@ public class Utils {
     }
     return ret;
   }
-  
+
   // length unknown
   public static String decompress() {
     return null;
