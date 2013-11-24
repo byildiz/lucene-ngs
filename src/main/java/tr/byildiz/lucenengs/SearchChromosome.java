@@ -101,6 +101,9 @@ public class SearchChromosome {
       } else if ("-kmer".equals(args[i])) {
         kmerLength = Integer.parseInt(args[i + 1]);
         i++;
+      } else if ("-pool".equals(args[i])) {
+        poolSize = Integer.parseInt(args[i + 1]);
+        i++;
       }
     }
 

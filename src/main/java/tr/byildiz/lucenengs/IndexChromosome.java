@@ -183,9 +183,6 @@ public class IndexChromosome {
             estimated);
         System.out.println();
       }
-
-      if (kmerCount == 200000)
-        break;
     }
     reader.close();
     System.out.println("Indexing is completed");
