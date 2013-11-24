@@ -13,6 +13,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
@@ -32,7 +33,11 @@ public class IndexChromosome {
 
   public static boolean withHash = DefaultConfig.WITHHASH;
 
+  public static boolean withCompressed = DefaultConfig.WITHCOMPRESSED;
+
   public static int kmerLength = DefaultConfig.KMERLENGTH;
+  
+  public static int offset = DefaultConfig.OFFSET;
 
   public static String homePath = DefaultConfig.HOMEPATH;
 
@@ -44,7 +49,7 @@ public class IndexChromosome {
 
   public static int[] indexParts = DefaultConfig.INDEXPARTS;
 
-  public static String usage = "Usage: IndexChromosome -index indexPath -file filePath -kmer [70] -n [8] -e [4]";
+  public static String usage = "Usage: IndexChromosome -index indexPath -file filePath -kmer [70] -n [8] -e [4] -hash";
 
   public static void main(String[] args) throws IOException {
     // parse system arguments
@@ -65,6 +70,11 @@ public class IndexChromosome {
         // if edit distance is given, so index with edit distance
         withED = true;
         e = Integer.parseInt(args[i + 1]);
+        i++;
+      } else if ("-hash".equals(args[i])) {
+        withHash = true;
+      } else if ("-offset".equals(args[i])) {
+        offset = Integer.parseInt(args[i + 1]);
         i++;
       }
     }
@@ -103,8 +113,8 @@ public class IndexChromosome {
       System.out.println("Indexing with hash distance\n");
 
     Directory dir = FSDirectory.open(new File(indexPath));
-    Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_31);
-    IndexWriterConfig iwc = new IndexWriterConfig(Version.LUCENE_31, analyzer);
+    Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_45);
+    IndexWriterConfig iwc = new IndexWriterConfig(Version.LUCENE_45, analyzer);
 
     // create new index and if exist overwrite them
     iwc.setOpenMode(OpenMode.CREATE);
@@ -114,11 +124,12 @@ public class IndexChromosome {
     File file = new File(filePath);
     BufferedReader reader = new BufferedReader(new FileReader(file));
     StringBuilder buffer = new StringBuilder();
+    int offset = 0;
     int kmerCount = 0;
     int partPointer = 0;
     boolean exit = false;
     while (true) {
-      while (buffer.length() < kmerLength + kmerCount) {
+      while (buffer.length() < kmerLength + offset) {
         String line = reader.readLine();
         if (line == null) {
           exit = true;
@@ -132,7 +143,8 @@ public class IndexChromosome {
       }
       if (exit)
         break;
-      String kmer = buffer.substring(kmerCount, kmerCount + kmerLength);
+      String kmer = buffer.substring(offset, offset + kmerLength);
+      offset += 70;
 
       // index k-mer with n-grams
       indexKmer(writer, kmer);
@@ -199,14 +211,8 @@ public class IndexChromosome {
   static void indexKmer(IndexWriter writer, String kmer) throws IOException {
     Document doc = new Document();
 
-    // // store raw kmer for future use
-    // Field kmerField = new Field("kmer", kmer, Field.Store.YES,
-    // Field.Index.NOT_ANALYZED_NO_NORMS);
-    // kmerField.setIndexOptions(IndexOptions.DOCS_ONLY);
-    // doc.add(kmerField);
-
     // first pad the given k-mer
-    kmer = extendKmer(kmer, n);
+    kmer = Utils.extendKmer(kmer, n);
 
     // create a string contains all possible n-grams in given k-mer
     StringBuilder buffer = new StringBuilder();
@@ -215,6 +221,9 @@ public class IndexChromosome {
         break;
       }
       String ngram = kmer.substring(0, n);
+      if (withCompressed) {
+        // ngram =
+      }
       if (withED) {
         for (int j = Math.max(i - e, 0); j <= i + e; j++) {
           String term = ngram + j;
@@ -232,40 +241,8 @@ public class IndexChromosome {
     }
 
     // add created string as contents of doc
-    doc.add(new Field(field, buffer.toString(), Field.Store.NO,
-        Field.Index.ANALYZED));
+    doc.add(new TextField(field, buffer.toString(), Field.Store.NO));
     writer.addDocument(doc);
-  }
-
-  /**
-   * inserts n - 1 "x" chars at the beginning and end of the given query k-mer
-   * 
-   * @param queryKmer
-   * @param n
-   * @return extended query k-mer
-   */
-  public static String extendKmer(String queryKmer, int n) {
-    StringBuilder buffer = new StringBuilder(queryKmer);
-    for (int i = 1; i < n; i++) {
-      buffer.insert(0, "x");
-      buffer.append("x");
-    }
-    return buffer.toString();
-  }
-
-  /**
-   * inserts n - 1 "x" chars at the beginning of the given query k-mer
-   * 
-   * @param queryKmer
-   * @param n
-   * @return extended query k-mer
-   */
-  public static String extendBeginningOfKmer(String queryKmer, int n) {
-    StringBuilder buffer = new StringBuilder(queryKmer);
-    for (int i = 1; i < n; i++) {
-      buffer.insert(0, "x");
-    }
-    return buffer.toString();
   }
 
 }
