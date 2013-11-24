@@ -36,7 +36,7 @@ public class IndexChromosome {
   public static boolean withCompressed = DefaultConfig.WITHCOMPRESSED;
 
   public static int kmerLength = DefaultConfig.KMERLENGTH;
-  
+
   public static int offset = DefaultConfig.OFFSET;
 
   public static String homePath = DefaultConfig.HOMEPATH;
@@ -136,7 +136,7 @@ public class IndexChromosome {
         }
         line = line.trim();
         // for fasta files
-        if (line.startsWith(">") || line.contains("N"))
+        if ("".equals(line) || line.startsWith(">") || line.contains("N"))
           continue;
         buffer.append(line);
       }
