@@ -6,6 +6,6 @@ java -d64 -Xms25G -Xmx40G -Xss25G -cp target/dependency/lucene-core-3.6.2.jar:ta
 
 cat ../index_genome_140_12/* > /dev/null
 
-java -d64 -Xms25G -Xmx40G -Xss25G -cp target/dependency/lucene-core-3.6.2.jar:target/lucene-ngs-1.0-SNAPSHOT.jar tr.byildiz.lucenengs.SearchChromosome -method AnF -index index_genome -query query.txt -n 12 -e 3 -repeat 1 -results AnF_results.txt -kmer 140
+java -d64 -Xms25G -Xmx40G -Xss25G -cp target/dependency/lucene-core-3.6.2.jar:target/lucene-ngs-1.0-SNAPSHOT.jar tr.byildiz.lucenengs.SearchChromosome -method AnF -index index_genome -query read1.sim -n 12 -e 3 -repeat 1 -results AnF_results.txt -kmer 140
 #java -d64 -Xms25G -Xmx40G -Xss25G -cp target/dependency/lucene-core-3.6.2.jar:target/lucene-ngs-1.0-SNAPSHOT.jar tr.byildiz.lucenengs.SearchChromosome -method AnFP -index index_chromosome_01 -query query.txt -n 8 -repeat 1 -results AnFP_results.txt -kmer 140
 #java -d64 -Xms25G -Xmx40G -Xss25G -cp target/dependency/lucene-core-3.6.2.jar:target/lucene-ngs-1.0-SNAPSHOT.jar tr.byildiz.lucenengs.SearchChromosome -method Tocc -index index_chromosome_01 -query query.txt -n 8 -repeat 1 -results Tocc_results.txt -kmer 140
