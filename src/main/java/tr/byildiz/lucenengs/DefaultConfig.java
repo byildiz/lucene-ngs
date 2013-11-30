@@ -115,6 +115,8 @@ public final class DefaultConfig {
   
   public static final int POLLSIZE = 20;
 
+  public static final boolean OVERWRITE = false;
+
   public static int INDEXSIZE = 0;
 
 }

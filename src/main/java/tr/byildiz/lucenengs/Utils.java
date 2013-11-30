@@ -89,7 +89,7 @@ public class Utils {
     return buffer.toString();
   }
 
-  public static String getBases(int offset, int length) {
+  public static synchronized String getBases(int offset, int length) {
     if (SearchChromosome.bases == null)
       Utils.readBases();
 

@@ -54,7 +54,7 @@ public class SearchWorker implements Callable<SearchWorker.Results> {
         for (int j = 0; j < topDocs.totalHits; j++) {
           int docId = topDocs.scoreDocs[j].doc;
           System.out.println("Search worker #" + id + " found a kmer: "
-              + Utils.getBases(docId, SearchChromosome.kmerLength));
+              + Utils.getBases(docId, kmerLength));
         }
       }
       lastWorkTime = workTime;

@@ -32,6 +32,8 @@ public class IndexChromosome {
 
   public static boolean withCompressed = DefaultConfig.WITHCOMPRESSED;
 
+  public static boolean overwrite = DefaultConfig.OVERWRITE;
+
   public static int kmerLength = DefaultConfig.KMERLENGTH;
 
   public static int slide = DefaultConfig.SLIDE;
@@ -78,6 +80,8 @@ public class IndexChromosome {
       } else if ("-index-size".equals(args[i])) {
         indexSize = Integer.parseInt(args[i + 1]);
         i++;
+      } else if ("-overwrite".equals(args[i])) {
+        overwrite = true;
       }
     }
 
@@ -115,7 +119,12 @@ public class IndexChromosome {
     if (withHash)
       System.out.println("Indexing with hash distance\n");
 
-    Directory dir = FSDirectory.open(new File(indexPath));
+    File indexDir = new File(indexPath);
+    if (indexDir.exists() && !overwrite) {
+      System.out.println("Index directory have already been exists!");
+      return;
+    }
+    Directory dir = FSDirectory.open(indexDir);
     Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_45);
     IndexWriterConfig iwc = new IndexWriterConfig(Version.LUCENE_45, analyzer);
 

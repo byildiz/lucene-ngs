@@ -132,9 +132,18 @@ public class SearchChromosome {
     if (withHash)
       indexPath += "_withHash";
 
+    File indexDir = new File(indexPath);
+    for (int i = 0; i < poolSize; i++) {
+      File copyDir = new File(indexPath + "_copy" + i);
+      if (!copyDir.exists())
+        FileUtils.copyDirectory(indexDir, copyDir);
+    }
+    
+    Date globalStart = new Date();
+    
     System.out.println("Searcing started...\n");
     System.out.println("Search Method: " + searchMethod + "\n");
-
+    
     // read all bases to memory
     Utils.readBases();
 
@@ -142,7 +151,7 @@ public class SearchChromosome {
     if (!queryFile.canRead()) {
       System.out.println("Query file not found or not readable: " + queryPath);
     }
-
+    
     // get queries
     Scanner scanner = new Scanner(queryFile);
     ArrayList<Query> queryList = new ArrayList<>();
@@ -167,15 +176,6 @@ public class SearchChromosome {
     }
     scanner.close();
     Query[] queries = queryList.toArray(new Query[0]);
-
-    File indexDir = new File(indexPath);
-    for (int i = 0; i < poolSize; i++) {
-      File copyDir = new File(indexPath + "_copy" + i);
-      if (!copyDir.exists())
-        FileUtils.copyDirectory(indexDir, copyDir);
-    }
-
-    Date globalStart = new Date();
 
     // create thread pool, assign a searcher to each threads
     IndexReader[] readers = new IndexReader[poolSize];
