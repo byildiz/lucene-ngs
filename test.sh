@@ -6,4 +6,4 @@ java -d64 -Xms25G -Xmx40G -Xss25G -cp target/lucene-ngs-1.0-SNAPSHOT-jar-with-de
 
 #cat ../index_genome_100_12/* > /dev/null
 
-java -d64 -Xms25G -Xmx40G -Xss25G -cp target/lucene-ngs-1.0-SNAPSHOT-jar-with-dependencies.jar tr.byildiz.lucenengs.SearchChromosome -method AnF -index index_genome -query reads1.sim -n 12 -e 3 -repeat 1 -results AnF_results.txt -kmer 100 -pool 20
+java -d64 -Xms25G -Xmx40G -Xss25G -cp target/lucene-ngs-1.0-SNAPSHOT-jar-with-dependencies.jar tr.byildiz.lucenengs.SearchChromosome -method AnF -index index_genome -query reads1.sim -n 12 -e 3 -repeat 1 -results AnF_results.txt -kmer 100 -pool 1000

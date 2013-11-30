@@ -41,8 +41,9 @@ public class SearchWorker implements Callable<SearchWorker.Results> {
     int totalHits = 0;
     long start = System.currentTimeMillis();
 
-    int amount = (int) Math.ceil((double) queryCount / poolSize);
-    for (int i = amount * id; i < amount * (id + 1) && i < queryCount; i++) {
+    // int amount = (int) Math.ceil((double) queryCount / poolSize);
+    // for (int i = amount * id; i < amount * (id + 1) && i < queryCount; i++) {
+    for (int i = 0; i < 2000; i++) {
       Query query = queries[i];
       TopDocs topDocs = searcher.search(query, Integer.MAX_VALUE);
       long end = System.currentTimeMillis();
