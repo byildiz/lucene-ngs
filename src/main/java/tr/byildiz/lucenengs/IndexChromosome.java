@@ -1,9 +1,7 @@
 package tr.byildiz.lucenengs;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
@@ -90,6 +88,7 @@ public class IndexChromosome {
       withED = DebugConfig.WITHED;
       withHash = DebugConfig.WITHHASH;
       kmerLength = DebugConfig.KMERLENGTH;
+      slide = DebugConfig.SLIDE;
       indexPath = DebugConfig.INDEXPATH;
       filePath = DebugConfig.FILEPATH;
     }
@@ -125,34 +124,21 @@ public class IndexChromosome {
 
     IndexWriter writer = new IndexWriter(dir, iwc);
 
-    File file = new File(filePath);
-    BufferedReader reader = new BufferedReader(new FileReader(file));
-    StringBuilder buffer = new StringBuilder();
+    String buffer = Utils.readFasta(filePath);
     int offset = 0;
-    int kmerCount = 0;
-    int partPointer = 0;
-    boolean exit = false;
+    int indexedKmerCount = 0;
+    int totalKmerCount = buffer.length() / slide;
+    // int partPointer = 0;
     while (true) {
-      while (buffer.length() < kmerLength + offset) {
-        String line = reader.readLine();
-        if (line == null) {
-          exit = true;
-          break;
-        }
-        line = line.trim();
-        // for fasta files
-        if ("".equals(line) || line.startsWith(">") || line.contains("N"))
-          continue;
-        buffer.append(line);
-      }
-      if (exit)
+      if (buffer.length() < offset + kmerLength) {
         break;
+      }
       String kmer = buffer.substring(offset, offset + kmerLength);
       offset += slide;
 
       // index k-mer with n-grams
       indexKmer(writer, kmer);
-      kmerCount++;
+      indexedKmerCount++;
 
       // save a copy of current index after commit all created docs when
       // kmerCount equals to each amount of index parts.
@@ -175,24 +161,23 @@ public class IndexChromosome {
       // partPointer++;
       // }
 
-      if (kmerCount % 10000 == 0) {
+      if (indexedKmerCount % 10000 == 0) {
         end = new Date();
         double passed = (double) (end.getTime() - start.getTime()) / 1000;
-        double estimated = (double) passed * (file.length() - kmerCount)
-            / kmerCount;
-        double completed = (double) kmerCount * 100 / file.length();
+        double estimated = (double) passed
+            * (totalKmerCount - indexedKmerCount) / indexedKmerCount;
+        double completed = (double) indexedKmerCount * 100 / totalKmerCount;
         System.out.format("%%%.1f of indexing is completed%n", completed);
-        System.out.format("%d k-mer indexed in %.1f seconds%n", kmerCount,
-            passed);
+        System.out.format("%d k-mer indexed in %.1f seconds%n",
+            indexedKmerCount, passed);
         System.out.format("Estimated remaining time is %.1f seconds%n",
             estimated);
         System.out.println();
       }
 
-      if (indexSize != 0 && kmerCount == indexSize)
+      if (indexSize != 0 && indexedKmerCount == indexSize)
         break;
     }
-    reader.close();
     System.out.println("Indexing is completed");
 
     // store all bases to use while searching
@@ -212,14 +197,14 @@ public class IndexChromosome {
 
     end = new Date();
     System.out.println("Total time: " + (end.getTime() - start.getTime()));
-    System.out.println("Total " + kmerCount + " kmer indexed");
+    System.out.println("Total " + indexedKmerCount + " kmer indexed");
   }
 
   static void indexKmer(IndexWriter writer, String kmer) throws IOException {
     Document doc = new Document();
 
     // first pad the given k-mer
-    kmer = Utils.extendKmer(kmer, n);
+    // kmer = Utils.extendKmer(kmer, n);
 
     // create a string contains all possible n-grams in given k-mer
     StringBuilder buffer = new StringBuilder();

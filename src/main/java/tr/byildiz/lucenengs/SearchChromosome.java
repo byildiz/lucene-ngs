@@ -1,9 +1,6 @@
 package tr.byildiz.lucenengs;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.LineNumberReader;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
@@ -47,7 +44,7 @@ public class SearchChromosome {
 
   public static int kmerLength = DefaultConfig.KMERLENGTH;
 
-  public static boolean more = DefaultConfig.MORE;
+  public static boolean verbose = DefaultConfig.VERBOSE;
 
   public static String homePath = DefaultConfig.HOMEPATH;
 
@@ -89,8 +86,6 @@ public class SearchChromosome {
       } else if ("-repeat".equals(args[i])) {
         repeat = Integer.parseInt(args[i + 1]);
         i++;
-      } else if ("-more".equals(args[i])) {
-        more = true;
       } else if ("-hash".equals(args[i])) {
         withHash = true;
       } else if ("-ed".equals(args[i])) {
@@ -104,6 +99,8 @@ public class SearchChromosome {
       } else if ("-pool".equals(args[i])) {
         poolSize = Integer.parseInt(args[i + 1]);
         i++;
+      } else if ("-verbose".equals(args[i])) {
+        verbose = true;
       }
     }
 
@@ -111,9 +108,10 @@ public class SearchChromosome {
     if (DEBUG) {
       n = DebugConfig.N;
       e = DebugConfig.E;
+      poolSize = DebugConfig.POLLSIZE;
       withED = DebugConfig.WITHED;
       withHash = DebugConfig.WITHHASH;
-      more = DebugConfig.MORE;
+      verbose = DebugConfig.VERBOSE;
       repeat = DebugConfig.REPEAT;
       kmerLength = DebugConfig.KMERLENGTH;
       searchMethod = DebugConfig.SEARCHMETHOD;
@@ -138,7 +136,7 @@ public class SearchChromosome {
     System.out.println("Search Method: " + searchMethod + "\n");
 
     // read all bases to memory
-    readBases();
+    Utils.readBases();
 
     File queryFile = new File(queryPath);
     if (!queryFile.canRead()) {
@@ -183,12 +181,13 @@ public class SearchChromosome {
     IndexReader[] readers = new IndexReader[poolSize];
     IndexSearcher[] searchers = new IndexSearcher[poolSize];
     ExecutorService threadPool = Executors.newFixedThreadPool(poolSize);
-    Set<Future<Results[]>> searchResults = new HashSet<>();
+    Set<Future<Results>> searchResults = new HashSet<>();
     for (int i = 0; i < poolSize; i++) {
       File copyDir = new File(indexPath + "_copy" + i);
       readers[i] = DirectoryReader.open(FSDirectory.open(copyDir));
       searchers[i] = new IndexSearcher(readers[i]);
-      SearchWorker worker = new SearchWorker(i + 1, searchers[i], queries);
+      SearchWorker worker = new SearchWorker(i, searchers[i], queries,
+          SearchChromosome.poolSize, kmerLength, verbose);
       searchResults.add(threadPool.submit(worker));
     }
     threadPool.shutdown();
@@ -204,24 +203,21 @@ public class SearchChromosome {
       readers[i].close();
     }
 
-    int queryCount = queries.length;
-    int[] totalHits = new int[queryCount];
-    long[] workTimes = new long[queryCount];
-    for (Future<Results[]> f : searchResults) {
-      Results[] results = f.get();
-      for (int j = 0; j < queryCount; j++) {
-        Results r = results[j];
-        totalHits[j] += r.topDocs.totalHits;
-        workTimes[j] += r.workTime;
-      }
+    int totalHits = 0;
+    long totalTime = 0;
+    for (Future<Results> f : searchResults) {
+      Results results = f.get();
+      int hits = results.totalHits;
+      long time = results.workTime;
+      totalHits += hits;
+      totalTime += time;
+      System.out.println("Search Worker #" + results.threadId + " found "
+          + hits + " kmers in " + time);
     }
 
     System.out.println();
-    for (int j = 0; j < queryCount; j++) {
-      double meanTime = (double) workTimes[j] / poolSize;
-      System.out.println("Query #" + (j + 1) + " time: " + meanTime + " hits: "
-          + totalHits[j]);
-    }
+    System.out.println("Total Hits: " + totalHits);
+    System.out.println("Total Work Time: " + totalTime);
     System.out.println();
     System.out.println("Overall Time: " + globalTime);
   }
@@ -318,7 +314,7 @@ public class SearchChromosome {
       while (true) {
         String ngram = null;
         if (copy.length() < n) {
-          ngram = padEndOfNgram(copy, n);
+          ngram = Utils.padEndOfNgram(copy, n);
         } else {
           ngram = copy.substring(0, n);
         }
@@ -369,96 +365,5 @@ public class SearchChromosome {
       }
     }
     return query;
-  }
-
-  /**
-   * return n length of n-gram padded end of given n-gram with "x"
-   * 
-   * @param ngram
-   * @param n
-   * @return padded n-gram
-   */
-  public static String padEndOfNgram(String ngram, int n) {
-    if (n <= ngram.length())
-      return ngram;
-    StringBuilder buffer = new StringBuilder(ngram);
-    for (int i = ngram.length(); i < n; i++) {
-      buffer.append("x");
-    }
-    return buffer.toString();
-  }
-
-  /**
-   * finds edit distance (aka. Levenstein distance) between s1 and s2
-   * 
-   * @param s1
-   * @param s2
-   * @return edit distance
-   */
-  public static int editDistance(String s1, String s2) {
-    s1 = s1.toLowerCase();
-    s2 = s2.toLowerCase();
-
-    int l1 = s1.length();
-    int l2 = s2.length();
-
-    if (l1 == 0)
-      return l2;
-
-    if (l2 == 0)
-      return l1;
-
-    int[][] d = new int[l1 + 1][l2 + 1];
-
-    for (int i = 0; i <= l1; i++) {
-      d[i][0] = i;
-    }
-
-    for (int j = 0; j <= l2; j++) {
-      d[0][j] = j;
-    }
-
-    for (int j = 1; j <= l2; j++) {
-      for (int i = 1; i <= l1; i++) {
-        if (s1.charAt(i - 1) == s2.charAt(j - 1))
-          d[i][j] = d[i - 1][j - 1];
-        else
-          d[i][j] = Math.min(d[i - 1][j] + 1,
-              Math.min(d[i][j - 1] + 1, d[i - 1][j - 1] + 1));
-      }
-    }
-
-    return d[l1][l2];
-  }
-
-  public static int countLines(String path) throws Exception {
-    File file = new File(path);
-    LineNumberReader lineCounter = new LineNumberReader(new FileReader(file));
-    lineCounter.skip(Long.MAX_VALUE);
-    int count = lineCounter.getLineNumber();
-    lineCounter.close();
-    return count;
-  }
-
-  private static void readBases() {
-    if (bases != null)
-      return;
-
-    try {
-      String basesPath = indexPath + ".txt";
-      File basesFile = new File(basesPath);
-      BufferedReader basesReader = new BufferedReader(new FileReader(basesFile));
-      bases = basesReader.readLine();
-      basesReader.close();
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-  }
-
-  private static String getBases(int offset, int length) {
-    if (bases == null)
-      readBases();
-
-    return bases.substring(offset, offset + length);
   }
 }

@@ -35,7 +35,7 @@ public final class DefaultConfig {
   /**
    * if more equal to true, searcher writes found k-mers to results file
    */
-  public static final boolean MORE = false;
+  public static final boolean VERBOSE = false;
 
   /**
    * user home path

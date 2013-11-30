@@ -1,8 +1,6 @@
 package tr.byildiz.lucenengs;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Random;
 
@@ -62,22 +60,7 @@ public class CreateQuery {
       System.exit(0);
     }
 
-    BufferedReader reader = new BufferedReader(new FileReader(filePath));
-    StringBuilder buffer = new StringBuilder();
-    while (true) {
-      String line = reader.readLine();
-      if (line == null) {
-        break;
-      }
-      line = line.trim();
-      // for fasta files
-      if (line.startsWith(">") || line.contains("N"))
-        continue;
-      buffer.append(line);
-    }
-    reader.close();
-
-    String sequence = buffer.toString();
+    String sequence = Utils.readFasta(filePath);
     int totalKmerCount = sequence.length() - kmerLength + 1;
 
     BufferedWriter writer = new BufferedWriter(new FileWriter(queryPath));
@@ -90,15 +73,15 @@ public class CreateQuery {
       for (int j = 0; j < e; j++) {
         int randOp = random.nextInt(3);
         switch (randOp) {
-          case 0:
-            kmer = delete(kmer);
-            break;
-          case 1:
-            kmer = insert(kmer);
-            break;
-          case 2:
-            kmer = substitute(kmer);
-            break;
+        case 0:
+          kmer = delete(kmer);
+          break;
+        case 1:
+          kmer = insert(kmer);
+          break;
+        case 2:
+          kmer = substitute(kmer);
+          break;
         }
       }
 
